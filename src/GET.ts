@@ -45,10 +45,10 @@ export const handler: Handler = async function(event: ApiGatewayRequest, _contex
             const data = await s3.send(command);
 
             const files = getFilesForDir(dirUrl, data.Contents ?? []);
-            const retData = { files,  url: dirUrl };
             return {
                 statusCode: 200,
-                body: JSON.stringify(retData)
+                body: buildHTML(dirUrl, files),
+                headers: { 'Content-Type': 'text/html' }
             }
         }
         catch (e) {
@@ -62,6 +62,9 @@ export const handler: Handler = async function(event: ApiGatewayRequest, _contex
 
 type File = {
     key: string
+    name: string
+    lastModified: Date
+    size: number
 }
 function getFilesForDir(url: string, objs: _Object[]) {
     const urlParts = url.split('/');
@@ -69,8 +72,45 @@ function getFilesForDir(url: string, objs: _Object[]) {
     for (let obj of objs) {
         const keyParts = obj.Key.split('/');
         if (keyParts.length === urlParts.length + 1) {
-            files.push({ key: obj.Key })
+            files.push({
+                key: obj.Key,
+                name: keyParts[keyParts.length - 1],
+                lastModified: obj.LastModified ?? new Date(),
+                size: obj.Size ?? 0
+            })
         }
     }
     return files;
+}
+
+function buildHTML(gav: string, files: File[]) {
+    const backlink = gav.length ? '<pre id="contents"><a href="../">../</a>\n' : '';
+    const links = files.map(buildHTMLRow).join('\n');
+    return `
+<html>
+<head>
+    <title>Lambda Repo Repository: ${gav}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>body { background: #fff; }</style>
+</head>
+<body>
+<header>
+    <h1>${gav}</h1>
+</header>
+<hr>
+<main>
+<pre id="contents">
+${backlink}${links}
+</pre>
+</main>
+<hr>
+</body>
+</html>
+`
+}
+
+function buildHTMLRow(file: File) {
+    const link = `<a href="${file.name}" title="${file.name}">${file.name}</a>`;
+    // TODO dynamic spacing, format last modified properly
+    return link + '                                     ' + file.lastModified.toISOString() + '   ' + file.size;
 }
