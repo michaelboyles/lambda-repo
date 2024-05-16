@@ -1,0 +1,165 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Serverless Maven repository
+Parameters:
+  CorsAllowOrigin:
+    Description: URL to use in CORS allow-origin headers. This is the base domain of the website you want to add comments to. An asterisk means any URL is permitted.
+    Type: String
+    Default: "*"
+    MinLength: 1
+  ServerCodeBucket:
+    Description: The name of the S3 bucket containing the server's zipped code bundle
+    Type: String
+    MinLength: 1
+  ServerCodeFilename:
+    Description: The filename of the server's zipped code bundle within the given S3 bucket
+    Type: String
+    Default: lambda-repo.zip
+    MinLength: 1
+Resources:
+  IAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${AWS::StackName}-LambdaRepoRole
+      Path: /
+      Description: Links Lambda Repo lambdas to Lambda Repo policy
+      AssumeRolePolicyDocument:
+        '{
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service":"lambda.amazonaws.com"
+                            },
+                            "Action": "sts:AssumeRole"
+                        }
+                    ]
+                }'
+      MaxSessionDuration: 3600
+      ManagedPolicyArns:
+        - !Ref IAMManagedPolicy
+
+  IAMManagedPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub ${AWS::StackName}-LambdaRepoPolicy
+      Path: /
+      Description: Allows Lambda Repo lambdas to query S3
+      PolicyDocument: !Sub |
+        {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Sid": "VisualEditor1",
+                    "Effect": "Allow",
+                    "Action": [
+                        "s3:Get*",
+                        "s3:List*",
+                        "s3:Describe*",
+                        "s3-object-lambda:Get*",
+                        "s3-object-lambda:List*"
+                    ],
+                    "Resource": "arn:aws:s3:::lambda-repo-test-jwzmfqas*"
+                }
+            ]
+        }
+
+  LambdaGET:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Handles GET requests
+      FunctionName: !Sub ${AWS::StackName}-GET
+      Runtime: nodejs20.x
+      MemorySize: 128
+      Handler: getHandler.handler
+      Code:
+        S3Bucket: !Ref ServerCodeBucket
+        S3Key: !Ref ServerCodeFilename
+      Role: !GetAtt IAMRole.Arn
+      Timeout: 3
+      TracingConfig:
+        Mode: PassThrough
+      Environment:
+        Variables:
+          CORS_ALLOW_ORIGIN: !Ref CorsAllowOrigin
+
+  LambdaPermissionGET:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt LambdaGET.Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGatewayRestApi}/*/*/*
+
+  ApiGatewayRestApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Sub ${AWS::StackName}-lambda-repo-API
+      Description: REST API for Lambda Repo
+      ApiKeySourceType: HEADER
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+
+  ApiGatewayResourceGET:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref ApiGatewayRestApi
+      PathPart: "{url+}"
+      ParentId: !GetAtt ApiGatewayRestApi.RootResourceId
+
+  ApiGatewayMethodGET:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ApiGatewayRestApi
+      ResourceId: !Ref ApiGatewayResourceGET
+      HttpMethod: GET
+      AuthorizationType: NONE
+      ApiKeyRequired: false
+      MethodResponses:
+        - ResponseModels:
+            "application/json": Empty
+          ResponseParameters:
+            "method.response.header.Access-Control-Allow-Origin": false
+          StatusCode: "200"
+      Integration:
+        CacheNamespace: !Ref ApiGatewayResourceGET
+        ContentHandling: CONVERT_TO_TEXT
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'${CorsAllowOrigin}'"
+            ResponseTemplates: { }
+            StatusCode: 200
+        PassthroughBehavior: WHEN_NO_MATCH
+        TimeoutInMillis: 29000
+        Type: AWS_PROXY
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${LambdaGET}/invocations
+
+  ApiGatewayStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      StageName: default
+      DeploymentId: !Ref ApiGatewayDeployment
+      RestApiId: !Ref ApiGatewayRestApi
+      CacheClusterEnabled: false
+      MethodSettings:
+        - ResourcePath: "/*"
+          HttpMethod: "*"
+          CacheDataEncrypted: false
+          CachingEnabled: false
+          DataTraceEnabled: false
+          MetricsEnabled: false
+      TracingEnabled: false
+
+  ApiGatewayDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn: [
+      ApiGatewayMethodGET,
+    ]
+    Properties:
+      RestApiId: !Ref ApiGatewayRestApi
+Outputs:
+  URL:
+    Description: URL to use in POM
+    Value: !Sub https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/default
