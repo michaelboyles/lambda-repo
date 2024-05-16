@@ -1,22 +1,14 @@
 import { ApiGatewayRequest, ApiGatewayResponse } from './aws'
 import { S3Client, GetObjectCommand, ListObjectsV2Command, _Object } from "@aws-sdk/client-s3";
-import type { Handler } from 'aws-lambda'
+import { Handler } from 'aws-lambda'
+import { isMavenFile } from './common';
 
-const fileSuffixes = ['.jar', '.sha1', '.sha256'];
 const s3 = new S3Client({ region: "eu-west-2" });
 const bucket = 'lambda-repo-test-jwzmfqas';
 
 export const handler: Handler = async function(event: ApiGatewayRequest, _context): Promise<ApiGatewayResponse> {
     const url = decodeURIComponent(event.pathParameters.url);
-
-    const isFile = function() {
-        for (let fileSuffix of fileSuffixes) {
-            if (url.endsWith(fileSuffix)) return true;
-        }
-        return false;
-    }();
-
-    if (isFile) {
+    if (isMavenFile(url)) {
         try {
             const command = new GetObjectCommand({ Bucket: bucket, Key: url });
             const data = await s3.send(command);

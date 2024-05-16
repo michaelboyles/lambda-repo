@@ -3,7 +3,8 @@ module.exports = [
         name: 'Server',
         mode: 'production',
         entry: {
-            'getHandler': './src/getHandler.ts'
+            'GET': './src/GET.ts',
+            'PUT': './src/PUT.ts'
         },
         output: {
             filename: '[name].js',

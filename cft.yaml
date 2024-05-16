@@ -53,11 +53,8 @@ Resources:
                     "Sid": "VisualEditor1",
                     "Effect": "Allow",
                     "Action": [
-                        "s3:Get*",
-                        "s3:List*",
-                        "s3:Describe*",
-                        "s3-object-lambda:Get*",
-                        "s3-object-lambda:List*"
+                        "s3:*",
+                        "s3-object-lambda:*"
                     ],
                     "Resource": "arn:aws:s3:::lambda-repo-test-jwzmfqas*"
                 }
@@ -71,7 +68,7 @@ Resources:
       FunctionName: !Sub ${AWS::StackName}-GET
       Runtime: nodejs20.x
       MemorySize: 128
-      Handler: getHandler.handler
+      Handler: GET.handler
       Code:
         S3Bucket: !Ref ServerCodeBucket
         S3Key: !Ref ServerCodeFilename
@@ -91,6 +88,33 @@ Resources:
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGatewayRestApi}/*/*/*
 
+  LambdaPUT:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Handles PUT requests
+      FunctionName: !Sub ${AWS::StackName}-PUT
+      Runtime: nodejs20.x
+      MemorySize: 128
+      Handler: PUT.handler
+      Code:
+        S3Bucket: !Ref ServerCodeBucket
+        S3Key: !Ref ServerCodeFilename
+      Role: !GetAtt IAMRole.Arn
+      Timeout: 3
+      TracingConfig:
+        Mode: PassThrough
+      Environment:
+        Variables:
+          CORS_ALLOW_ORIGIN: !Ref CorsAllowOrigin
+
+  LambdaPermissionPUT:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt LambdaPUT.Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGatewayRestApi}/*/*/*
+
   ApiGatewayRestApi:
     Type: AWS::ApiGateway::RestApi
     Properties:
@@ -101,7 +125,7 @@ Resources:
         Types:
           - REGIONAL
 
-  ApiGatewayResourceGET:
+  ApiGatewayResource:
     Type: AWS::ApiGateway::Resource
     Properties:
       RestApiId: !Ref ApiGatewayRestApi
@@ -112,7 +136,7 @@ Resources:
     Type: AWS::ApiGateway::Method
     Properties:
       RestApiId: !Ref ApiGatewayRestApi
-      ResourceId: !Ref ApiGatewayResourceGET
+      ResourceId: !Ref ApiGatewayResource
       HttpMethod: GET
       AuthorizationType: NONE
       ApiKeyRequired: false
@@ -123,7 +147,7 @@ Resources:
             "method.response.header.Access-Control-Allow-Origin": false
           StatusCode: "200"
       Integration:
-        CacheNamespace: !Ref ApiGatewayResourceGET
+        CacheNamespace: !Ref ApiGatewayResource
         ContentHandling: CONVERT_TO_TEXT
         IntegrationHttpMethod: POST
         IntegrationResponses:
@@ -135,6 +159,34 @@ Resources:
         TimeoutInMillis: 29000
         Type: AWS_PROXY
         Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${LambdaGET}/invocations
+
+  ApiGatewayMethodPUT:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ApiGatewayRestApi
+      ResourceId: !Ref ApiGatewayResource
+      HttpMethod: PUT
+      AuthorizationType: NONE
+      ApiKeyRequired: false
+      MethodResponses:
+        - ResponseModels:
+            "application/json": Empty
+          ResponseParameters:
+            "method.response.header.Access-Control-Allow-Origin": false
+          StatusCode: "200"
+      Integration:
+        CacheNamespace: !Ref ApiGatewayResource
+        ContentHandling: CONVERT_TO_TEXT
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - ResponseParameters:
+              "method.response.header.Access-Control-Allow-Origin": !Sub "'${CorsAllowOrigin}'"
+            ResponseTemplates: { }
+            StatusCode: 200
+        PassthroughBehavior: WHEN_NO_MATCH
+        TimeoutInMillis: 29000
+        Type: AWS_PROXY
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${LambdaPUT}/invocations
 
   ApiGatewayStage:
     Type: AWS::ApiGateway::Stage
@@ -156,6 +208,7 @@ Resources:
     Type: AWS::ApiGateway::Deployment
     DependsOn: [
       ApiGatewayMethodGET,
+      ApiGatewayMethodPUT
     ]
     Properties:
       RestApiId: !Ref ApiGatewayRestApi
