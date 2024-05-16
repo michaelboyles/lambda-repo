@@ -1,11 +1,12 @@
 export interface ApiGatewayRequest {
-    body: string;
-    queryStringParameters: any;
-    pathParameters: any;
+    body: string
+    queryStringParameters: any
+    pathParameters: any
 }
 
 export interface ApiGatewayResponse {
-    statusCode: number;
-    headers?: object,
-    body: string;
+    statusCode: number
+    headers?: object
+    body: string
+    isBase64Encoded?: boolean
 }

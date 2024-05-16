@@ -4,7 +4,7 @@ import type { Handler } from 'aws-lambda'
 
 const fileSuffixes = ['.jar', '.sha1', '.sha256'];
 const s3 = new S3Client({ region: "eu-west-2" });
-const bucket = 'TODO ADD ME';
+const bucket = 'lambda-repo-test-jwzmfqas';
 
 export const handler: Handler = async function(event: ApiGatewayRequest, _context): Promise<ApiGatewayResponse> {
     const url = decodeURIComponent(event.pathParameters.url);
@@ -18,12 +18,27 @@ export const handler: Handler = async function(event: ApiGatewayRequest, _contex
 
     if (isFile) {
         try {
-            const command = new GetObjectCommand({ Bucket: bucket, Key: 'url' });
+            const command = new GetObjectCommand({ Bucket: bucket, Key: url });
             const data = await s3.send(command);
-            return {
-                statusCode: 200,
-                body: await data.Body.transformToString('UTF-8')
-            };
+
+            if (url.endsWith('jar')) {
+                return {
+                    statusCode: 200,
+                    body: await data.Body.transformToString('base64'),
+                    headers: {
+                        "Content-Type": "application/java-archive"
+                    },
+                    isBase64Encoded: true
+                };
+            }
+            else {
+                const contentType = url.endsWith('.pom') ? 'text/xml' : 'text/plain';
+                return {
+                    statusCode: 200,
+                    body: await data.Body.transformToString('UTF-8'),
+                    headers: { "Content-Type": contentType }
+                }
+            }
         }
         catch (e) {
             return {
