@@ -1,3 +1,10 @@
+export type File = {
+    key: string
+    name: string
+    lastModified: Date
+    size: number
+}
+
 export const fileSuffixes = ['.jar', '.sha1', '.sha256', '.md5', '.xml', '.asc', '.pom'] as const;
 
 export function isMavenFile(path: string) {

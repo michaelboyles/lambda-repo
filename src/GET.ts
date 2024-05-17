@@ -1,7 +1,8 @@
 import { ApiGatewayRequest, ApiGatewayResponse } from './aws'
 import { S3Client, GetObjectCommand, ListObjectsV2Command, _Object } from "@aws-sdk/client-s3";
 import { Handler } from 'aws-lambda'
-import { isMavenFile } from './common';
+import { isMavenFile, File } from './common';
+import { buildHTML } from './list-directory';
 
 const region = process.env.AWS_REGION;
 const bucket = process.env.BUCKET;
@@ -61,12 +62,6 @@ export const handler: Handler = async function(event: ApiGatewayRequest, _contex
     }
 }
 
-type File = {
-    key: string
-    name: string
-    lastModified: Date
-    size: number
-}
 function getFilesForDir(url: string, objs: _Object[]) {
     const urlParts = url.split('/');
     const files: File[] = [];
@@ -84,34 +79,3 @@ function getFilesForDir(url: string, objs: _Object[]) {
     return files;
 }
 
-function buildHTML(gav: string, files: File[]) {
-    const backlink = gav.length ? '<pre id="contents"><a href="../">../</a>\n' : '';
-    const links = files.map(buildHTMLRow).join('\n');
-    return `
-<html>
-<head>
-    <title>Lambda Repo Repository: ${gav}</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <style>body { background: #fff; }</style>
-</head>
-<body>
-<header>
-    <h1>${gav}</h1>
-</header>
-<hr>
-<main>
-<pre id="contents">
-${backlink}${links}
-</pre>
-</main>
-<hr>
-</body>
-</html>
-`
-}
-
-function buildHTMLRow(file: File) {
-    const link = `<a href="${file.name}" title="${file.name}">${file.name}</a>`;
-    // TODO dynamic spacing, format last modified properly
-    return link + '                                     ' + file.lastModified.toISOString() + '   ' + file.size;
-}

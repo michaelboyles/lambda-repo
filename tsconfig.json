@@ -2,8 +2,7 @@
   "compilerOptions":
   {
     "moduleResolution": "node",
-    "target": "ES2019",
-    "types": ["webpack-env"]
+    "target": "ES2019"
   }
 }
 
