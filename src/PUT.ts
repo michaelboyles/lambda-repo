@@ -1,4 +1,4 @@
-import { ApiGatewayRequest, ApiGatewayResponse } from './aws'
+import { ApiGatewayRequest, ApiGatewayResponse, serverError } from './aws'
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { Handler } from 'aws-lambda'
 import { isMavenFile, parseMavenGAV } from './common';
@@ -22,8 +22,6 @@ export const handler: Handler = async function(event: ApiGatewayRequest, _contex
         return { statusCode: 200, body: 'Uploaded' }
     }
     catch (e) {
-        return {
-            statusCode: 500, body: 'Error: ' + JSON.stringify(e)
-        }
+        return serverError(e);
     }
 }

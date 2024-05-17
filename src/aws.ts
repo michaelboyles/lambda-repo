@@ -13,3 +13,7 @@ export interface ApiGatewayResponse {
     body: string
     isBase64Encoded?: boolean
 }
+
+export function serverError(error: any): ApiGatewayResponse {
+    return { statusCode: 500, body: 'Server error: ' + JSON.stringify(error) };
+}

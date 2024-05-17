@@ -1,4 +1,4 @@
-import { ApiGatewayRequest, ApiGatewayResponse } from './aws'
+import { ApiGatewayRequest, ApiGatewayResponse, serverError } from './aws'
 import { S3Client, GetObjectCommand, ListObjectsV2Command, _Object } from "@aws-sdk/client-s3";
 import { Handler } from 'aws-lambda'
 import { isMavenFile, File, isBinaryFile, isXMLFile } from './common';
@@ -25,19 +25,15 @@ export const handler: Handler = async function(event: ApiGatewayRequest, _contex
                     isBase64Encoded: true
                 };
             }
-            else {
-                const contentType = isXMLFile(url) ? 'text/xml' : 'text/plain';
-                return {
-                    statusCode: 200,
-                    body: await data.Body.transformToString('UTF-8'),
-                    headers: { "Content-Type": contentType }
-                }
+            const contentType = isXMLFile(url) ? 'text/xml' : 'text/plain';
+            return {
+                statusCode: 200,
+                body: await data.Body.transformToString('UTF-8'),
+                headers: { "Content-Type": contentType }
             }
         }
         catch (e) {
-            return {
-                statusCode: 404, body: 'Error: ' + JSON.stringify(e)
-            }
+            return serverError(e);
         }
     }
     else {
@@ -61,10 +57,7 @@ export const handler: Handler = async function(event: ApiGatewayRequest, _contex
             return { statusCode: 200, body, headers: { 'Content-Type': 'text/html' } };
         }
         catch (e) {
-            return {
-                statusCode: 404,
-                body: JSON.stringify(e)
-            }
+            return serverError(e);
         }
     }
 }
