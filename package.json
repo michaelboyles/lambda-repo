@@ -4,8 +4,10 @@
   "scripts": {
     "webpack": "webpack",
     "start": "webpack-dev-server --mode development --open --hot",
-    "build": "webpack"
+    "zip": "node build/zip.js",
+    "build": "run-s webpack zip"
   },
+  "config": {},
   "author": "Michael Boyles",
   "license": "MIT",
   "dependencies": {
@@ -15,6 +17,8 @@
     "@types/aws-lambda": "^8.10.137",
     "@types/node": "^20.12.11",
     "@types/webpack-env": "^1.18.5",
+    "archiver": "^7.0.1",
+    "npm-run-all": "^4.1.5",
     "ts-loader": "^9.5.1",
     "typescript": "^5.4.5",
     "webpack": "^5.91.0",
