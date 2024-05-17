@@ -1,7 +1,7 @@
 import { ApiGatewayRequest, ApiGatewayResponse } from './aws'
 import { S3Client, GetObjectCommand, ListObjectsV2Command, _Object } from "@aws-sdk/client-s3";
 import { Handler } from 'aws-lambda'
-import { isMavenFile, File } from './common';
+import { isMavenFile, File, isBinaryFile, isXMLFile } from './common';
 import { buildHTML } from './list-directory';
 
 const region = process.env.AWS_REGION;
@@ -15,7 +15,7 @@ export const handler: Handler = async function(event: ApiGatewayRequest, _contex
             const command = new GetObjectCommand({ Bucket: bucket, Key: url });
             const data = await s3.send(command);
 
-            if (url.endsWith('jar')) {
+            if (isBinaryFile(url)) {
                 return {
                     statusCode: 200,
                     body: await data.Body.transformToString('base64'),
@@ -26,7 +26,7 @@ export const handler: Handler = async function(event: ApiGatewayRequest, _contex
                 };
             }
             else {
-                const contentType = url.endsWith('.pom') ? 'text/xml' : 'text/plain';
+                const contentType = isXMLFile(url) ? 'text/xml' : 'text/plain';
                 return {
                     statusCode: 200,
                     body: await data.Body.transformToString('UTF-8'),

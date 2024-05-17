@@ -5,13 +5,36 @@ export type File = {
     size: number
 }
 
-export const fileSuffixes = ['.jar', '.sha1', '.sha256', '.md5', '.xml', '.asc', '.pom'] as const;
+export const binarySuffixes = ['.jar', '.war', '.ear', '.zip'] as const;
+export const xmlSuffixes = ['.xml', '.pom'] as const;
+export const checksumSuffixes = ['.sha1', '.sha256', '.md5'] as const;
+export const signatureSuffixes = ['.asc'] as const;
+export const fileSuffixes = [
+    ...binarySuffixes,
+    ...checksumSuffixes,
+    ...xmlSuffixes,
+    ...signatureSuffixes
+] as const;
 
 export function isMavenFile(path: string) {
     for (let fileSuffix of fileSuffixes) {
         if (path.endsWith(fileSuffix)) {
             return path.lastIndexOf('.') > 0;
         }
+    }
+    return false;
+}
+
+export function isBinaryFile(path: string) {
+    for (let fileSuffix of binarySuffixes) {
+        if (path.endsWith(fileSuffix)) return true;
+    }
+    return false;
+}
+
+export function isXMLFile(path: string) {
+    for (let fileSuffix of xmlSuffixes) {
+        if (path.endsWith(fileSuffix)) return true;
     }
     return false;
 }
