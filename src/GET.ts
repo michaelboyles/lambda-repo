@@ -9,7 +9,9 @@ const bucket = process.env.BUCKET;
 const s3 = new S3Client({ region });
 
 export const handler: Handler = async function(event: ApiGatewayRequest, _context): Promise<ApiGatewayResponse> {
-    const url = decodeURIComponent(event.pathParameters.url);
+    // url is only missing for the default route (the one called 'ApiGatewayMethodGETROOT' in cft.yaml)
+    const requestUrl = event.pathParameters?.url ?? '/';
+    const url = decodeURIComponent(requestUrl);
     if (isMavenFile(url)) {
         try {
             const command = new GetObjectCommand({ Bucket: bucket, Key: url });
@@ -46,9 +48,8 @@ export const handler: Handler = async function(event: ApiGatewayRequest, _contex
         }
 
         try {
-            const withTrailingSlash = url.endsWith('/') ? url : (url + '/');
             const withoutTrailingSlash = url.endsWith('/') ? url.substring(url.length - 1) : url;
-            const command = new ListObjectsV2Command({ Bucket: bucket, Prefix: withTrailingSlash });
+            const command = new ListObjectsV2Command({ Bucket: bucket, Prefix: getPrefixForUrl(url) });
             const data = await s3.send(command);
 
             const files = getFilesForDir(withoutTrailingSlash, data.Contents ?? []);
@@ -65,8 +66,14 @@ export const handler: Handler = async function(event: ApiGatewayRequest, _contex
     }
 }
 
+function getPrefixForUrl(url: string) {
+    if (url === '/') return undefined;
+    if (url.endsWith('/')) return url;
+    return url + '/'; // should never get here, but may as well make sure
+}
+
 function getFilesForDir(url: string, objs: _Object[]): File[] {
-    const urlParts = url.split('/');
+    const urlParts = (url === '/') ? [] : url.split('/');
     const nameToFile = new Map<string, File>();
     for (let obj of objs) {
         const keyParts = obj.Key.split('/');

@@ -5,18 +5,19 @@ const SIZE_COL_WIDTH = 10;
 const GAP = 2;
 
 export function buildHTML(gav: string, files: File[]) {
-    const backlink = gav.length ? '<pre id="contents"><a href="../">../</a>\n' : '';
+    const backlink = gav === '/' ? '' : '<pre id="contents"><a href="../">../</a>\n';
+    const title = gav === '/' ? '' : gav;
     const links = files.map(buildHTMLRow).join('\n');
     return `
 <html lang="en">
 <head>
-    <title>Lambda Repo Repository: ${gav}</title>
+    <title>Lambda Repo Repository: ${title}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <style>body { background: #fff; }</style>
 </head>
 <body>
 <header>
-    <h1>${gav}</h1>
+    <h1>${title}</h1>
 </header>
 <hr>
 <main>
