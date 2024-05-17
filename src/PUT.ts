@@ -3,8 +3,9 @@ import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { Handler } from 'aws-lambda'
 import { isMavenFile, parseMavenGAV } from './common';
 
-const s3 = new S3Client({ region: "eu-west-2" });
-const bucket = 'lambda-repo-test-jwzmfqas';
+const region = process.env.AWS_REGION;
+const bucket = process.env.BUCKET;
+const s3 = new S3Client({ region });
 
 export const handler: Handler = async function(event: ApiGatewayRequest, _context): Promise<ApiGatewayResponse> {
     const url = decodeURIComponent(event.pathParameters.url);

@@ -1,11 +1,6 @@
 AWSTemplateFormatVersion: 2010-09-09
 Description: Serverless Maven repository
 Parameters:
-  CorsAllowOrigin:
-    Description: URL to use in CORS allow-origin headers. This is the base domain of the website you want to add comments to. An asterisk means any URL is permitted.
-    Type: String
-    Default: "*"
-    MinLength: 1
   ServerCodeBucket:
     Description: The name of the S3 bucket containing the server's zipped code bundle
     Type: String
@@ -56,7 +51,7 @@ Resources:
                         "s3:*",
                         "s3-object-lambda:*"
                     ],
-                    "Resource": "arn:aws:s3:::lambda-repo-test-jwzmfqas*"
+                    "Resource": "${MavenFiles.Arn}*"
                 }
             ]
         }
@@ -78,7 +73,7 @@ Resources:
         Mode: PassThrough
       Environment:
         Variables:
-          CORS_ALLOW_ORIGIN: !Ref CorsAllowOrigin
+          BUCKET: !Ref MavenFiles
 
   LambdaPermissionGET:
     Type: AWS::Lambda::Permission
@@ -105,7 +100,7 @@ Resources:
         Mode: PassThrough
       Environment:
         Variables:
-          CORS_ALLOW_ORIGIN: !Ref CorsAllowOrigin
+          BUCKET: !Ref MavenFiles
 
   LambdaPermissionPUT:
     Type: AWS::Lambda::Permission
@@ -150,11 +145,6 @@ Resources:
         CacheNamespace: !Ref ApiGatewayResource
         ContentHandling: CONVERT_TO_TEXT
         IntegrationHttpMethod: POST
-        IntegrationResponses:
-          - ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'${CorsAllowOrigin}'"
-            ResponseTemplates: { }
-            StatusCode: 200
         PassthroughBehavior: WHEN_NO_MATCH
         TimeoutInMillis: 29000
         Type: AWS_PROXY
@@ -178,11 +168,6 @@ Resources:
         CacheNamespace: !Ref ApiGatewayResource
         ContentHandling: CONVERT_TO_TEXT
         IntegrationHttpMethod: POST
-        IntegrationResponses:
-          - ResponseParameters:
-              "method.response.header.Access-Control-Allow-Origin": !Sub "'${CorsAllowOrigin}'"
-            ResponseTemplates: { }
-            StatusCode: 200
         PassthroughBehavior: WHEN_NO_MATCH
         TimeoutInMillis: 29000
         Type: AWS_PROXY
@@ -212,6 +197,37 @@ Resources:
     ]
     Properties:
       RestApiId: !Ref ApiGatewayRestApi
+
+  MavenFiles:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${AWS::StackName}-files-${AWS::AccountId}
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: aws:kms
+              KMSMasterKeyID: alias/aws/s3
+      PublicAccessBlockConfiguration:
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  MavenFilesBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref MavenFiles
+      PolicyDocument:
+        Id: RequireEncryptionInTransit
+        Version: '2012-10-17'
+        Statement:
+          - Principal: '*'
+            Action: '*'
+            Effect: Deny
+            Resource:
+              - !GetAtt MavenFiles.Arn
+              - !Sub ${MavenFiles.Arn}/*
+            Condition:
+              Bool:
+                aws:SecureTransport: 'false'
 Outputs:
   URL:
     Description: URL to use in POM
