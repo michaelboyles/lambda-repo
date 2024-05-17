@@ -4,7 +4,8 @@ module.exports = [
         mode: 'production',
         entry: {
             'GET': './src/GET.ts',
-            'PUT': './src/PUT.ts'
+            'PUT': './src/PUT.ts',
+            'auth': './src/auth.ts'
         },
         output: {
             filename: '[name].js',
@@ -27,7 +28,7 @@ module.exports = [
                 }
             ]
         },
-        externals: ['@aws-sdk/client-s3'],
+        externals: ['@aws-sdk/client-s3', '@aws-sdk/client-secrets-manager'],
         optimization: {
             minimize: false
         },

@@ -10,6 +10,9 @@ Parameters:
     Type: String
     Default: lambda-repo.zip
     MinLength: 1
+  InitialPassword:
+    Description: Initial password, you can change this later using Secrets Manager
+    Type: String
 Resources:
   IAMRole:
     Type: AWS::IAM::Role
@@ -24,7 +27,7 @@ Resources:
                         {
                             "Effect": "Allow",
                             "Principal": {
-                                "Service":"lambda.amazonaws.com"
+                                "Service": ["apigateway.amazonaws.com","lambda.amazonaws.com"]
                             },
                             "Action": "sts:AssumeRole"
                         }
@@ -45,16 +48,32 @@ Resources:
             "Version": "2012-10-17",
             "Statement": [
                 {
-                    "Sid": "VisualEditor1",
                     "Effect": "Allow",
                     "Action": [
                         "s3:*",
                         "s3-object-lambda:*"
                     ],
                     "Resource": "${MavenFiles.Arn}*"
+                },
+                {
+                    "Effect": "Allow",
+                    "Action": "secretsmanager:GetSecretValue",
+                    "Resource": "${Password}"
+                },
+                {
+                    "Effect": "Allow",
+                    "Action": "lambda:invoke*",
+                    "Resource": "*"
                 }
             ]
         }
+
+  Password:
+    Type: AWS::SecretsManager::Secret
+    Description: Password for Lambda Repo
+    Properties:
+      Name: !Sub ${AWS::StackName}-password
+      SecretString: !Sub ${InitialPassword}
 
   LambdaGET:
     Type: AWS::Lambda::Function
@@ -110,15 +129,52 @@ Resources:
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGatewayRestApi}/*/*/*
 
+  LambdaAuth:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Authenticates requests for Lambda Repo
+      FunctionName: !Sub ${AWS::StackName}-auth
+      Runtime: nodejs20.x
+      MemorySize: 128
+      Handler: auth.handler
+      Code:
+        S3Bucket: !Ref ServerCodeBucket
+        S3Key: !Ref ServerCodeFilename
+      Role: !GetAtt IAMRole.Arn
+      Timeout: 3
+      TracingConfig:
+        Mode: PassThrough
+      Environment:
+        Variables:
+          BUCKET: !Ref MavenFiles
+          PASSWORD_SECRET_NAME: !Ref Password
+          ALLOWED_ARN: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGatewayRestApi}/*/*/*
+
   ApiGatewayRestApi:
     Type: AWS::ApiGateway::RestApi
     Properties:
       Name: !Sub ${AWS::StackName}-API
       Description: REST API for Lambda Repo
-      ApiKeySourceType: HEADER
-      EndpointConfiguration:
-        Types:
-          - REGIONAL
+
+  ApiGatewayAuthorizer:
+    Type: AWS::ApiGateway::Authorizer
+    Properties:
+      Name: !Sub ${AWS::StackName}-authorizer
+      RestApiId: !Ref ApiGatewayRestApi
+      Type: TOKEN
+      AuthorizerUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${LambdaAuth}/invocations
+      AuthorizerCredentials: !GetAtt IAMRole.Arn
+      IdentitySource: method.request.header.authorization
+
+  ## Adds a header to prompt for user/password auth
+  UnauthorizedResponse:
+    Type: AWS::ApiGateway::GatewayResponse
+    Properties:
+      RestApiId: !Ref ApiGatewayRestApi
+      ResponseType: UNAUTHORIZED
+      StatusCode: 401
+      ResponseParameters:
+        gatewayresponse.header.WWW-Authenticate: "'Basic'"
 
   ApiGatewayResource:
     Type: AWS::ApiGateway::Resource
@@ -133,7 +189,8 @@ Resources:
       RestApiId: !Ref ApiGatewayRestApi
       ResourceId: !Ref ApiGatewayResource
       HttpMethod: GET
-      AuthorizationType: NONE
+      AuthorizationType: CUSTOM
+      AuthorizerId: !Ref ApiGatewayAuthorizer
       Integration:
         ContentHandling: CONVERT_TO_TEXT
         IntegrationHttpMethod: POST
@@ -146,7 +203,8 @@ Resources:
       RestApiId: !Ref ApiGatewayRestApi
       ResourceId: !GetAtt ApiGatewayRestApi.RootResourceId
       HttpMethod: GET
-      AuthorizationType: NONE
+      AuthorizationType: CUSTOM
+      AuthorizerId: !Ref ApiGatewayAuthorizer
       Integration:
         ContentHandling: CONVERT_TO_TEXT
         IntegrationHttpMethod: POST
@@ -159,7 +217,8 @@ Resources:
       RestApiId: !Ref ApiGatewayRestApi
       ResourceId: !Ref ApiGatewayResource
       HttpMethod: PUT
-      AuthorizationType: NONE
+      AuthorizationType: CUSTOM
+      AuthorizerId: !Ref ApiGatewayAuthorizer
       Integration:
         ContentHandling: CONVERT_TO_TEXT
         IntegrationHttpMethod: POST
@@ -172,9 +231,6 @@ Resources:
       StageName: !Sub ${AWS::StackName}
       DeploymentId: !Ref ApiGatewayDeployment
       RestApiId: !Ref ApiGatewayRestApi
-      MethodSettings:
-        - ResourcePath: "/*"
-          HttpMethod: "*"
 
   ApiGatewayDeployment:
     Type: AWS::ApiGateway::Deployment
