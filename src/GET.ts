@@ -42,15 +42,23 @@ export const handler: Handler = async function(event: ApiGatewayRequest, _contex
     }
     else {
         try {
-            let dirUrl = url.endsWith('/') ? url : (url + '/');
-            const command = new ListObjectsV2Command({ Bucket: bucket,  Prefix: dirUrl });
+            const withTrailingSlash = url.endsWith('/') ? url : (url + '/');
+            const withoutTrailingSlash = url.endsWith('/') ? url.substring(url.length - 1) : url;
+            const command = new ListObjectsV2Command({ Bucket: bucket, Prefix: withTrailingSlash });
             const data = await s3.send(command);
 
-            const files = getFilesForDir(dirUrl, data.Contents ?? []);
-            return {
-                statusCode: 200,
-                body: buildHTML(dirUrl, files),
-                headers: { 'Content-Type': 'text/html' }
+            const files = getFilesForDir(withoutTrailingSlash, data.Contents ?? []);
+            if (!files.length) {
+                return { statusCode: 404, body: 'Not found', headers: { 'Content-Type': 'text/html' } }
+            }
+
+            const body = buildHTML(withoutTrailingSlash, files);
+            if (url.endsWith('/')) {
+                return { statusCode: 200, body, headers: { 'Content-Type': 'text/html' } };
+            }
+            else {
+                // TODO 302
+                return { statusCode: 200, body, headers: { 'Content-Type': 'text/html' }}
             }
         }
         catch (e) {
@@ -62,20 +70,28 @@ export const handler: Handler = async function(event: ApiGatewayRequest, _contex
     }
 }
 
-function getFilesForDir(url: string, objs: _Object[]) {
+function getFilesForDir(url: string, objs: _Object[]): File[] {
     const urlParts = url.split('/');
-    const files: File[] = [];
+    const nameToFile = new Map<string, File>();
     for (let obj of objs) {
         const keyParts = obj.Key.split('/');
-        if (keyParts.length === urlParts.length + 1) {
-            files.push({
-                key: obj.Key,
-                name: keyParts[keyParts.length - 1],
-                lastModified: obj.LastModified ?? new Date(),
-                size: obj.Size ?? 0
-            })
+        // Get the first part after the URL
+        let name = keyParts[urlParts.length];
+        const isDir = !isMavenFile(name);
+        if (isDir) name += '/';
+        let lastModified = obj.LastModified ?? new Date();
+        if (isDir) {
+            const oldMillis = nameToFile.get(name)?.lastModified?.getMilliseconds() ?? 0;
+            if (oldMillis > lastModified.getTime()) {
+                lastModified = new Date(oldMillis);
+            }
         }
+        nameToFile.set(name, {
+            name,
+            lastModified,
+            size: obj.Size ?? 0,
+            isDir
+        });
     }
-    return files;
+    return [...nameToFile.values()];
 }
-

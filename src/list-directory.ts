@@ -37,11 +37,12 @@ export function buildHTMLRow(file: File) {
         shownFileName = file.name.substring(0, FILE_COL_WIDTH - GAP - truncationMarker.length) + truncationMarker;
     }
     const link = `<a href="${file.name}" title="${file.name}">${shownFileName}</a>`;
+    const size = file.isDir ? '-' : String(file.size ?? 0);
     return link
         + ' '.repeat(FILE_COL_WIDTH - shownFileName.length)
         + formatDate(file.lastModified)
         + ' '.repeat(GAP)
-        + String(file.size).padStart(SIZE_COL_WIDTH - GAP, ' ');
+        + size.padStart(SIZE_COL_WIDTH - GAP, ' ');
 }
 
 function formatDate(date: Date): string {

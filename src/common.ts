@@ -1,8 +1,8 @@
 export type File = {
-    key: string
     name: string
     lastModified: Date
-    size: number
+    isDir: boolean
+    size?: number
 }
 
 export const binarySuffixes = ['.jar', '.war', '.ear', '.zip'] as const;
