@@ -1,4 +1,4 @@
-import { ApiGatewayRequest, ApiGatewayResponse, serverError } from './aws'
+import { ApiGatewayRequest, ApiGatewayResponse, isS3Error, notFoundResponse, serverError } from './aws'
 import { S3Client, GetObjectCommand, ListObjectsV2Command, _Object } from "@aws-sdk/client-s3";
 import { Handler } from 'aws-lambda'
 import { isMavenFile, File, isBinaryFile, isXMLFile } from './common';
@@ -33,6 +33,9 @@ export const handler: Handler = async function(event: ApiGatewayRequest, _contex
             }
         }
         catch (e) {
+            if (isS3Error(e) && e.name === 'NoSuchKey') {
+                return notFoundResponse();
+            }
             return serverError(e);
         }
     }
@@ -50,7 +53,7 @@ export const handler: Handler = async function(event: ApiGatewayRequest, _contex
 
             const files = getFilesForDir(withoutTrailingSlash, data.Contents ?? []);
             if (!files.length) {
-                return { statusCode: 404, body: 'Not found', headers: { 'Content-Type': 'text/html' } }
+                return notFoundResponse();
             }
 
             const body = buildHTML(withoutTrailingSlash, files);
