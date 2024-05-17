@@ -1,6 +1,6 @@
-import { ApiGatewayRequest, ApiGatewayResponse, isS3Error, notFoundResponse, serverError } from './aws'
+import { isS3Error, notFoundResponse, serverError } from './aws'
 import { S3Client, GetObjectCommand, ListObjectsV2Command, _Object } from "@aws-sdk/client-s3";
-import { Handler } from 'aws-lambda'
+import { APIGatewayProxyHandler } from 'aws-lambda'
 import { isMavenFile, File, isBinaryFile, isXMLFile } from './common';
 import { buildHTML } from './list-directory';
 
@@ -8,7 +8,7 @@ const region = process.env.AWS_REGION;
 const bucket = process.env.BUCKET;
 const s3 = new S3Client({ region });
 
-export const handler: Handler = async function(event: ApiGatewayRequest, _context): Promise<ApiGatewayResponse> {
+export const handler: APIGatewayProxyHandler = async function(event, _context) {
     // url is only missing for the default route (the one called 'ApiGatewayMethodGETROOT' in cft.yaml)
     const requestUrl = event.pathParameters?.url ?? '/';
     const url = decodeURIComponent(requestUrl);
