@@ -41,6 +41,11 @@ export const handler: Handler = async function(event: ApiGatewayRequest, _contex
         }
     }
     else {
+        if (!event.requestContext.path.endsWith('/')) {
+            const newLocation = event.requestContext.path + '/';
+            return { statusCode: 302, body: '', headers: { 'Content-Type': 'text/html', 'Location': newLocation }}
+        }
+
         try {
             const withTrailingSlash = url.endsWith('/') ? url : (url + '/');
             const withoutTrailingSlash = url.endsWith('/') ? url.substring(url.length - 1) : url;
@@ -53,13 +58,7 @@ export const handler: Handler = async function(event: ApiGatewayRequest, _contex
             }
 
             const body = buildHTML(withoutTrailingSlash, files);
-            if (url.endsWith('/')) {
-                return { statusCode: 200, body, headers: { 'Content-Type': 'text/html' } };
-            }
-            else {
-                // TODO 302
-                return { statusCode: 200, body, headers: { 'Content-Type': 'text/html' }}
-            }
+            return { statusCode: 200, body, headers: { 'Content-Type': 'text/html' } };
         }
         catch (e) {
             return {

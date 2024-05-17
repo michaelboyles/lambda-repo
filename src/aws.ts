@@ -2,6 +2,9 @@ export interface ApiGatewayRequest {
     body: string
     queryStringParameters: any
     pathParameters: any
+    requestContext: {
+        path: string
+    }
 }
 
 export interface ApiGatewayResponse {
