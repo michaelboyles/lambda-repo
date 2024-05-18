@@ -1,5 +1,5 @@
-import { serverError } from './aws'
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { isS3Error, serverError } from './aws'
+import { S3Client, PutObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
 import { APIGatewayProxyHandler } from 'aws-lambda'
 import { isMavenFile, parseFilePath } from './common';
 
@@ -14,8 +14,27 @@ export const handler: APIGatewayProxyHandler = async function(event, _context) {
     if (!event.body || !isMavenFile(url)) {
         return { statusCode: 400, body: 'Invalid file' };
     }
+
+    let file: ReturnType<typeof parseFilePath>;
     try {
-        const file = parseFilePath(url);
+        file = parseFilePath(url);
+    }
+    catch (e) {
+        return { statusCode: 400, body: 'Invalid file path' };
+    }
+
+    if (file.type === 'normal' && !file.isSnapshot) {
+        try {
+            await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: url }));
+            return { statusCode: 403, body: 'Cannot replace release versions. Version already exists' }
+        }
+        catch (e) {
+            if (!(isS3Error(e) && e.name === 'NotFound')) {
+                return serverError('Failed to query S3');
+            }
+        }
+    }
+    try {
         await s3.send(new PutObjectCommand({ Bucket: bucket, Key: url, Body: event.body }));
         return { statusCode: 200, body: 'Uploaded' }
     }
