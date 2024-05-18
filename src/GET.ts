@@ -44,7 +44,7 @@ export const handler: APIGatewayProxyHandler = async function(event, _context) {
     else {
         if (!event.requestContext.path.endsWith('/')) {
             const newLocation = event.requestContext.path + '/';
-            return { statusCode: 302, body: '', headers: { 'Content-Type': 'text/html', 'Location': newLocation }}
+            return { statusCode: 302, body: '', headers: { 'Location': newLocation }}
         }
 
         try {
@@ -53,6 +53,9 @@ export const handler: APIGatewayProxyHandler = async function(event, _context) {
 
             const files = getFilesForDir(withoutTrailingSlash, data.Contents ?? []);
             if (!files.length) {
+                if (requestUrl === '/') {
+                    return { statusCode: 200, body: 'Welcome to Lambda Repo 🚀', headers: { 'Content-Type': 'text/plain; charset=utf-8' }}
+                }
                 return notFoundResponse();
             }
 
