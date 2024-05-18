@@ -1,4 +1,4 @@
-import { APIGatewayProxyResult } from 'aws-lambda/trigger/api-gateway-proxy';
+import { APIGatewayProxyResult } from 'aws-lambda';
 
 export function serverError(error: any): APIGatewayProxyResult {
     return { statusCode: 500, body: 'Server error: ' + JSON.stringify(error) };

@@ -1,5 +1,5 @@
 import { GetSecretValueCommand, SecretsManagerClient } from '@aws-sdk/client-secrets-manager';
-import { APIGatewayTokenAuthorizerHandler } from 'aws-lambda/trigger/api-gateway-authorizer';
+import { APIGatewayTokenAuthorizerHandler } from 'aws-lambda';
 
 const passwordSecretName = process.env.PASSWORD_SECRET_NAME;
 const region = process.env.AWS_REGION;
