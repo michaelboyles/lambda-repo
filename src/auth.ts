@@ -7,6 +7,7 @@ const client = new SecretsManagerClient({ region });
 const allowedArn = process.env.ALLOWED_ARN;
 
 export const handler: APIGatewayTokenAuthorizerHandler = async function(event, _context) {
+    if (!allowedArn) throw new Error("Configuration error, no ARN given");
     const passwordResponse = await client.send(
         new GetSecretValueCommand({ SecretId: passwordSecretName })
     );

@@ -17,6 +17,7 @@ export const handler: APIGatewayProxyHandler = async function(event, _context) {
             const command = new GetObjectCommand({ Bucket: bucket, Key: url });
             const data = await s3.send(command);
 
+            if (!data.Body) return serverError('File has no body');
             if (isBinaryFile(url)) {
                 return {
                     statusCode: 200,
@@ -76,6 +77,7 @@ function getFilesForDir(url: string, objs: _Object[]): File[] {
     const urlParts = (url === '/') ? [] : url.split('/');
     const nameToFile = new Map<string, File>();
     for (let obj of objs) {
+        if (!obj.Key) continue;
         const keyParts = obj.Key.split('/');
         // Get the first part after the URL
         let name = keyParts[urlParts.length];

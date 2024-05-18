@@ -8,8 +8,10 @@ const bucket = process.env.BUCKET;
 const s3 = new S3Client({ region });
 
 export const handler: APIGatewayProxyHandler = async function(event, _context) {
-    const url = decodeURIComponent(event.pathParameters.url);
-    if (!isMavenFile(url)) {
+    const givenUrl = event?.pathParameters?.url;
+    if (!givenUrl) return serverError('Configuration error');
+    const url = decodeURIComponent(givenUrl);
+    if (!event.body || !isMavenFile(url)) {
         return { statusCode: 400, body: 'Invalid file' };
     }
     try {
