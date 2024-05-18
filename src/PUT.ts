@@ -16,10 +16,7 @@ export const handler: APIGatewayProxyHandler = async function(event, _context) {
     }
     try {
         const file = parseFilePath(url);
-        const command = new PutObjectCommand({
-            Bucket: bucket, Key: url, Body: event.body
-        });
-        await s3.send(command);
+        await s3.send(new PutObjectCommand({ Bucket: bucket, Key: url, Body: event.body }));
         return { statusCode: 200, body: 'Uploaded' }
     }
     catch (e) {

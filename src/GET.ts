@@ -14,8 +14,7 @@ export const handler: APIGatewayProxyHandler = async function(event, _context) {
     const url = decodeURIComponent(requestUrl);
     if (isMavenFile(url)) {
         try {
-            const command = new GetObjectCommand({ Bucket: bucket, Key: url });
-            const data = await s3.send(command);
+            const data = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: url }));
 
             if (!data.Body) return serverError('File has no body');
             if (isBinaryFile(url)) {
@@ -50,8 +49,7 @@ export const handler: APIGatewayProxyHandler = async function(event, _context) {
 
         try {
             const withoutTrailingSlash = url.endsWith('/') ? url.substring(url.length - 1) : url;
-            const command = new ListObjectsV2Command({ Bucket: bucket, Prefix: getPrefixForUrl(url) });
-            const data = await s3.send(command);
+            const data = await s3.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: getPrefixForUrl(url) }));
 
             const files = getFilesForDir(withoutTrailingSlash, data.Contents ?? []);
             if (!files.length) {
