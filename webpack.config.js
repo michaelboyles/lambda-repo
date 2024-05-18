@@ -28,9 +28,6 @@ module.exports = [
                 }
             ]
         },
-        externals: ['@aws-sdk/client-s3', '@aws-sdk/client-secrets-manager'],
-        optimization: {
-            minimize: false
-        },
+        externals: ['@aws-sdk/client-s3', '@aws-sdk/client-secrets-manager']
     }
 ]
