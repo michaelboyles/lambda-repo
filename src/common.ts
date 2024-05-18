@@ -7,7 +7,7 @@ export type File = {
 
 export const binarySuffixes = ['.jar', '.war', '.ear', '.zip'] as const;
 export const xmlSuffixes = ['.xml', '.pom'] as const;
-export const checksumSuffixes = ['.sha1', '.sha256', '.md5'] as const;
+export const checksumSuffixes = ['.sha1', '.sha256', '.sha512', '.md5'] as const;
 export const signatureSuffixes = ['.asc'] as const;
 export const fileSuffixes = [
     ...binarySuffixes,
@@ -40,33 +40,56 @@ export function isXMLFile(path: string) {
 }
 
 // e.g. org/slf4j/slf4j-api/2.0.0/slf4j-api-2.0.0.pom
-export function parseMavenGAV(path: string) {
+//      org/slf4j/slf4j-api/maven-metadata.xml
+export function parseFilePath(path: string) {
     if (!path.includes('/')) throw new Error('Invalid GAV');
     const parts = path.split("/");
-    if (parts.length < 4) throw new Error('Invalid GAV');
     const file = parts[parts.length - 1];
-    if (!isMavenFile(file)) throw new Error('Invalid GAV');
+    if (isMetaDataFile(file)) {
+        return { type: 'metadata' };
+    }
+    else if (!isMavenFile(file)) {
+        throw new Error('Not a valid filename')
+    }
+
+    if (parts.length < 4) throw new Error('Invalid GAV');
+
     const version = parts[parts.length - 2];
-    if (version.length < 1) throw new Error('Invalid GAV');
+    if (!isValidVersion(version)) throw new Error('Invalid version ' + version);
     const isSnapshot = version.endsWith('-SNAPSHOT');
+
     const artifactId = parts[parts.length - 3];
-    if (artifactId.length < 1) throw new Error('Invalid GAV');
+    if (!isValidArtifactId(artifactId)) throw new Error('Invalid artifact ID ' + artifactId);
 
     let groupId = '';
     for (let i = 0; i <= parts.length - 4; i++) {
         const groupPart = parts[i];
-        if (groupPart.length < 1) throw new Error('Invalid GAV');
+        if (!isValidGroupIdPart(groupPart)) throw new Error('Invalid group ID part ' + groupPart);
         groupId += groupPart;
         if (i < parts.length - 4) {
             groupId += '.';
         }
     }
-    return { file, version, artifactId, groupId, isSnapshot }
+    return { type: 'normal', file, version, artifactId, groupId, isSnapshot }
 }
 
-// TODO exists above version, e.g. org/slf4j/slf4j-api/maven-metadata.xml
-export function isMetaDataFile(path: string) {
-    return path.endsWith('maven-metadata.xml')
-        || path.endsWith('maven-metadata.xml.md5')
-        || path.endsWith('maven-metadata.xml.sha1');
+function isMetaDataFile(filename: string) {
+    if (filename === 'maven-metadata.xml') return true;
+    for (let suffix of checksumSuffixes) {
+        if (filename === ('maven-metadata.xml' + suffix)) return true;
+    }
+    return false;
+}
+
+function isValidVersion(version: string): boolean {
+    return version.length >= 1;
+}
+
+function isValidArtifactId(artifactId: string): boolean {
+    return artifactId.length >= 1;
+}
+
+function isValidGroupIdPart(groupIdPart: string): boolean {
+    return groupIdPart.length >= 1
+        && !groupIdPart.includes('.'); // Group ID is split on periods and converted to / on upload
 }

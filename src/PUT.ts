@@ -1,7 +1,7 @@
 import { serverError } from './aws'
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { APIGatewayProxyHandler } from 'aws-lambda'
-import { isMavenFile, parseMavenGAV } from './common';
+import { isMavenFile, parseFilePath } from './common';
 
 const region = process.env.AWS_REGION;
 const bucket = process.env.BUCKET;
@@ -15,8 +15,7 @@ export const handler: APIGatewayProxyHandler = async function(event, _context) {
         return { statusCode: 400, body: 'Invalid file' };
     }
     try {
-        const gav = parseMavenGAV(url);
-
+        const file = parseFilePath(url);
         const command = new PutObjectCommand({
             Bucket: bucket, Key: url, Body: event.body
         });
